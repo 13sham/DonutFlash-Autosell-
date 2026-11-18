@@ -1,0 +1,30 @@
+{
+  "name": "donut-autosell-enterprise",
+  "version": "3.0.0",
+  "description": "Self-hosted Eldorado.gg x DonutSMP automated fulfillment engine & Vercel-styled control plane",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "setup": "node scripts/init-setup.js",
+    "doctor": "node scripts/healthcheck.js",
+    "backup": "node scripts/backup-db.js"
+  },
+  "keywords": [
+    "eldorado",
+    "donutsmp",
+    "mineflayer",
+    "auto-delivery",
+    "self-hosted"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "mineflayer": "^4.23.0",
+    "socks": "^2.8.3"
+  }
+}

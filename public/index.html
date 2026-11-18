@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DONUT // AUTO-SELL v3.0 — Control Plane</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #000000; color: #FAFAFA; font-family: 'Inter', sans-serif; }
+    .geist-card { background: #0A0A0A; border: 1px solid #1F1F1F; border-radius: 8px; }
+    .geist-card:hover { border-color: #2E2E2E; }
+    .geist-input {
+      background: #000000;
+      border: 1px solid #262626;
+      color: #FAFAFA;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      transition: border-color 0.15s ease;
+    }
+    .geist-input:focus { outline: none; border-color: #FAFAFA; }
+    .geist-btn-primary {
+      background: #FAFAFA;
+      color: #000000;
+      font-weight: 500;
+      border-radius: 6px;
+      padding: 0.5rem 0.95rem;
+      font-size: 0.8125rem;
+      transition: opacity 0.15s ease;
+    }
+    .geist-btn-primary:hover { opacity: 0.9; }
+    .geist-btn-secondary {
+      background: #111111;
+      border: 1px solid #262626;
+      color: #EDEDED;
+      font-weight: 500;
+      border-radius: 6px;
+      padding: 0.5rem 0.95rem;
+      font-size: 0.8125rem;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .geist-btn-secondary:hover { background: #1A1A1A; border-color: #3A3A3A; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #000000; }
+    ::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-white selection:text-black">
+
+  <!-- LOGIN / ACTIVATION GATE -->
+  <div id="authGate" class="fixed inset-0 z-50 flex items-center justify-center bg-black px-4">
+    <div class="w-full max-w-md geist-card p-6 sm:p-8 shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-3 h-3 bg-white rotate-45"></div>
+          <span class="font-mono text-sm font-semibold tracking-tight">DONUT // AUTO-SELL</span>
+        </div>
+        <span class="font-mono text-[11px] px-2 py-0.5 rounded border border-neutral-800 bg-neutral-950 text-neutral-400">v3.0 ENTERPRISE</span>
+      </div>
+
+      <h1 id="authTitle" class="text-xl font-semibold tracking-tight text-white mb-1">Activate &amp; Lock Control Plane</h1>
+      <p id="authSubtitle" class="text-xs text-neutral-400 mb-6">Bind your commercial license key and local SHA-256 vault passcode.</p>
+
+      <form id="authForm" class="space-y-4">
+        <div id="activationFields" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-neutral-300 mb-1.5">Store / Brand Name</label>
+            <input id="inputStoreName" type="text" placeholder="e.g. DonutVault Exchange" class="w-full geist-input" required />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-neutral-300 mb-1.5">Commercial License Key</label>
+            <input id="inputLicenseKey" type="text" placeholder="DONUT-XXXX-XXXX-XXXX" class="w-full geist-input font-mono" required />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-neutral-300 mb-1.5">Local Vault Passcode</label>
+          <input id="inputPasscode" type="password" placeholder="Enter master passcode" class="w-full geist-input font-mono" required />
+        </div>
+        <p id="authError" class="hidden text-xs text-red-400 font-mono"></p>
+        <button type="submit" id="authSubmitBtn" class="w-full geist-btn-primary py-2.5 text-sm font-semibold">
+          Activate &amp; Unlock Dashboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APPLICATION SHELL -->
+  <div id="appShell" class="hidden min-h-screen flex flex-col">
+    <header class="sticky top-0 z-30 border-b border-[#1F1F1F] bg-black/85 backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-2.5 h-2.5 bg-white rotate-45"></div>
+          <span id="headerStoreName" class="font-mono text-sm font-semibold tracking-tight text-white">DONUT // AUTO-SELL</span>
+          <span class="hidden sm:inline-block font-mono text-[10px] px-2 py-0.5 rounded border border-neutral-800 bg-neutral-950 text-neutral-400">
+            SELF-HOSTED // NO SUBSCRIPTION
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <div class="flex items-center gap-2 px-2.5 py-1 rounded-full border border-neutral-800 bg-neutral-950 text-[11px] font-mono text-neutral-400">
+            <span id="backendDot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+            <span id="backendStatusText">Connecting API...</span>
+          </div>
+          <button onclick="toggleEngine()" class="geist-btn-secondary font-mono text-xs flex items-center gap-1.5">
+            <span id="engineDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span id="engineLabel">ENGINE: ON</span>
+          </button>
+          <button onclick="lockVault()" class="geist-btn-secondary text-xs">Lock</button>
+        </div>
+      </div>
+
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-6 overflow-x-auto text-xs font-medium text-neutral-400">
+        <button onclick="switchTab('overview')" data-tab="overview" class="tab-btn py-3 border-b-2 border-white text-white whitespace-nowrap">Overview &amp; Live Queue</button>
+        <button onclick="switchTab('skus')" data-tab="skus" class="tab-btn py-3 border-b-2 border-transparent hover:text-white whitespace-nowrap">Offer SKUs &amp; Multipliers</button>
+        <button onclick="switchTab('scanner')" data-tab="scanner" class="tab-btn py-3 border-b-2 border-transparent hover:text-white whitespace-nowrap">Price Scanner &amp; $/B Calc</button>
+        <button onclick="switchTab('setup')" data-tab="setup" class="tab-btn py-3 border-b-2 border-transparent hover:text-white whitespace-nowrap">Setup &amp; Connect</button>
+        <button onclick="switchTab('readme')" data-tab="readme" class="tab-btn py-3 border-b-2 border-transparent hover:text-white whitespace-nowrap">Architecture &amp; Docs</button>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+      <!-- TAB 1: OVERVIEW & LIVE QUEUE -->
+      <section id="tab-overview" class="tab-panel space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="geist-card p-5">
+            <div class="text-xs text-neutral-400 mb-1">Delivered Revenue</div>
+            <div id="kpiRevenue" class="text-2xl font-mono font-semibold text-white">$0.00</div>
+            <div id="kpiDeliveredCount" class="text-[11px] font-mono text-neutral-500 mt-1">0 completed deliveries</div>
+          </div>
+          <div class="geist-card p-5">
+            <div class="text-xs text-neutral-400 mb-1">Active Bot Balance</div>
+            <div id="kpiBalance" class="text-2xl font-mono font-semibold text-white">$0</div>
+            <div id="kpiBotName" class="text-[11px] font-mono text-neutral-500 mt-1">Bot Offline</div>
+          </div>
+          <div class="geist-card p-5">
+            <div class="text-xs text-neutral-400 mb-1">Total Orders Tracked</div>
+            <div id="kpiOrders" class="text-2xl font-mono font-semibold text-white">0</div>
+            <div class="text-[11px] font-mono text-neutral-500 mt-1">WAL SQLite Ledger</div>
+          </div>
+          <div class="geist-card p-5">
+            <div class="text-xs text-neutral-400 mb-1">Active Offer Rate</div>
+            <div id="kpiRate" class="text-2xl font-mono font-semibold text-emerald-400">$13.80 / 1B</div>
+            <div class="text-[11px] font-mono text-neutral-500 mt-1">play.donutsmp.net</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 geist-card p-5 flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="text-sm font-semibold text-white">Live Eldorado.gg Fulfillment Queue</h2>
+                <p class="text-xs text-neutral-400">Deduplicated real-time orders from your self-hosted backend</p>
+              </div>
+              <button onclick="refreshLiveState()" class="geist-btn-secondary text-xs font-mono">Refresh</button>
+            </div>
+
+            <div class="overflow-x-auto flex-1">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#1F1F1F] text-[11px] font-mono text-neutral-400 uppercase">
+                    <th class="py-2.5 pr-3">Order ID</th>
+                    <th class="py-2.5 pr-3">Buyer IGN</th>
+                    <th class="py-2.5 pr-3">SKU</th>
+                    <th class="py-2.5 pr-3">Value</th>
+                    <th class="py-2.5 pr-3">Status</th>
+                    <th class="py-2.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody" class="divide-y divide-[#161616] text-xs font-mono">
+                  <tr>
+                    <td colspan="6" class="py-12 text-center text-neutral-500">
+                      Awaiting live Eldorado.gg orders from backend...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="geist-card p-5 flex flex-col justify-between space-y-4">
+            <div>
+              <h2 class="text-sm font-semibold text-white mb-1">Direct Bot Console &amp; Audit Stream</h2>
+              <p class="text-xs text-neutral-400 mb-3">Execute raw commands on your DonutSMP worker</p>
+              <form id="botCmdForm" class="flex gap-2 mb-4">
+                <input id="botCmdInput" type="text" placeholder="/bal or /pay Player 1000000" class="flex-1 geist-input font-mono text-xs" />
+                <button type="submit" class="geist-btn-primary text-xs font-mono">Send</button>
+              </form>
+              <div id="liveLogsBox" class="h-64 overflow-y-auto bg-black border border-[#1F1F1F] rounded-md p-3 font-mono text-[11px] space-y-1.5 text-neutral-300">
+                <div class="text-neutral-500">[SYSTEM] Control plane initialized. Connect backend at http://localhost:3000.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: OFFER SKUs & MULTIPLIERS -->
+      <section id="tab-skus" class="tab-panel hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="geist-card p-5 space-y-4">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Bind Eldorado Offer ID</h2>
+              <p class="text-xs text-neutral-400">Map each Eldorado listing to its exact DonutSMP unit payout</p>
+            </div>
+            <form id="skuForm" class="space-y-3">
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Eldorado Offer ID</label>
+                <input id="skuOfferId" type="text" placeholder="offer-278-xxxxxxxx" class="w-full geist-input font-mono" required />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">SKU Label</label>
+                <input id="skuLabel" type="text" placeholder="100M DonutSMP Cash" class="w-full geist-input" required />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Cash Per 1 Unit Purchased</label>
+                <input id="skuMultiplier" type="number" value="100000000" class="w-full geist-input font-mono" required />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Delivery Command Template</label>
+                <input id="skuCmd" type="text" value="/pay {ign} {amount}" class="w-full geist-input font-mono" required />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Auto-Pause Below Balance</label>
+                <input id="skuAutoPause" type="number" value="500000000" class="w-full geist-input font-mono" required />
+              </div>
+              <button type="submit" class="w-full geist-btn-primary">Save SKU Rule to SQLite</button>
+            </form>
+          </div>
+
+          <div class="lg:col-span-2 geist-card p-5">
+            <div class="mb-4">
+              <h2 class="text-sm font-semibold text-white">Active Offer ID Mappings</h2>
+              <p class="text-xs text-neutral-400">Stored in `data/donut_autosell.db` (`sku_mappings` table)</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#1F1F1F] text-[11px] font-mono text-neutral-400 uppercase">
+                    <th class="py-2.5 pr-3">Offer ID</th>
+                    <th class="py-2.5 pr-3">Label</th>
+                    <th class="py-2.5 pr-3">Unit Payout</th>
+                    <th class="py-2.5 pr-3">Command</th>
+                    <th class="py-2.5 text-right">Remove</th>
+                  </tr>
+                </thead>
+                <tbody id="skusTableBody" class="divide-y divide-[#161616] text-xs font-mono">
+                  <tr>
+                    <td colspan="5" class="py-10 text-center text-neutral-500">No custom Offer ID mappings saved yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: PRICE SCANNER & $/B CALCULATOR -->
+      <section id="tab-scanner" class="tab-panel hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 geist-card p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-sm font-semibold text-white">Eldorado.gg DonutSMP $/Billion Floor Reference</h2>
+                <p class="text-xs text-neutral-400">Benchmark seller tiers &amp; one-click undercut pricing</p>
+              </div>
+              <select id="tierFilter" onchange="renderMarketTable()" class="geist-input text-xs font-mono">
+                <option value="ALL">All Tiers</option>
+                <option value="RETAIL">Retail (&le; 500M Min)</option>
+                <option value="BULK">Bulk (&ge; 10B Min)</option>
+              </select>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-[#1F1F1F] text-[11px] font-mono text-neutral-400 uppercase">
+                    <th class="py-2.5 pr-3">Tier</th>
+                    <th class="py-2.5 pr-3">Rate ($ / 1B)</th>
+                    <th class="py-2.5 pr-3">Rate ($ / 1M)</th>
+                    <th class="py-2.5 pr-3">Min Order</th>
+                    <th class="py-2.5 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="marketTableBody" class="divide-y divide-[#161616] text-xs font-mono"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="geist-card p-5 space-y-4">
+            <div>
+              <h2 class="text-sm font-semibold text-white">$/Billion Profit &amp; Margin Calculator</h2>
+              <p class="text-xs text-neutral-400">Calculate net payout after Eldorado seller fees</p>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Your Listing Price ($ per 1B)</label>
+                <input id="calcSellRate" type="number" step="0.01" value="13.80" oninput="recalcMargin()" class="w-full geist-input font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Your Wholesale Cost ($ per 1B)</label>
+                <input id="calcCostRate" type="number" step="0.01" value="0.59" oninput="recalcMargin()" class="w-full geist-input font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Order Quantity (Billions)</label>
+                <input id="calcQtyB" type="number" step="0.1" value="1.0" oninput="recalcMargin()" class="w-full geist-input font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs text-neutral-400 mb-1">Eldorado Fee (%)</label>
+                <input id="calcFeePct" type="number" step="0.5" value="10" oninput="recalcMargin()" class="w-full geist-input font-mono" />
+              </div>
+            </div>
+
+            <div class="p-3.5 rounded-md bg-black border border-[#1F1F1F] space-y-1.5 font-mono text-xs">
+              <div class="flex justify-between"><span class="text-neutral-400">Gross Sale:</span><span id="resGross" class="text-white">$13.80</span></div>
+              <div class="flex justify-between"><span class="text-neutral-400">Platform Fee:</span><span id="resFee" class="text-amber-400">-$1.38</span></div>
+              <div class="flex justify-between"><span class="text-neutral-400">Stock Cost:</span><span id="resCost" class="text-neutral-300">-$0.59</span></div>
+              <div class="border-t border-[#1F1F1F] pt-1.5 flex justify-between font-semibold">
+                <span class="text-neutral-300">Net Profit:</span>
+                <span id="resNet" class="text-emerald-400">$11.83</span>
+              </div>
+            </div>
+
+            <button onclick="pushRateToEldorado()" class="w-full geist-btn-primary">Push Live Price to Eldorado Offer</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: SETUP & CONNECT -->
+      <section id="tab-setup" class="tab-panel hidden space-y-6">
+        <div class="geist-card p-6 max-w-3xl mx-auto space-y-6">
+          <div>
+            <h2 class="text-base font-semibold text-white">Self-Hosted Backend &amp; API Configuration</h2>
+            <p class="text-xs text-neutral-400">Hot-reload credentials into your running Node.js server (`http://localhost:3000`)</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-xs text-neutral-400 mb-1">Backend Control Plane URL</label>
+              <input id="cfgBackendUrl" type="text" value="http://localhost:3000" class="w-full geist-input font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-400 mb-1">Eldorado Seller Client ID</label>
+              <input id="cfgEldoId" type="text" placeholder="Client ID from Seller API" class="w-full geist-input font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-400 mb-1">Eldorado Seller Client Secret</label>
+              <input id="cfgEldoSecret" type="password" placeholder="Client Secret (kept local)" class="w-full geist-input font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-400 mb-1">Default Eldorado Offer ID</label>
+              <input id="cfgOfferId" type="text" placeholder="e.g. offer-278-xxxx" class="w-full geist-input font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs text-neutral-400 mb-1">Minecraft Bot Email (Microsoft Auth)</label>
+              <input id="cfgMcUser" type="text" placeholder="worker@outlook.com" class="w-full geist-input font-mono" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs text-neutral-400 mb-1">Discord Webhook URL (Real Live Alerts)</label>
+              <div class="flex gap-2">
+                <input id="cfgWebhook" type="text" placeholder="https://discord.com/api/webhooks/..." class="flex-1 geist-input font-mono" />
+                <button type="button" onclick="sendRealWebhookPing()" class="geist-btn-secondary whitespace-nowrap">Send Discord Ping</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-[#1F1F1F]">
+            <span id="cfgSaveStatus" class="text-xs font-mono text-neutral-400">Stored locally &amp; synced via POST /api/config</span>
+            <button onclick="saveAndSyncConfig()" class="geist-btn-primary">Save &amp; Sync to Server</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: ARCHITECTURE & DOCS -->
+      <section id="tab-readme" class="tab-panel hidden space-y-6">
+        <div class="geist-card p-6 max-w-4xl mx-auto space-y-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-white">Modular Project Layout &amp; CLI Commands</h2>
+              <p class="text-xs text-neutral-400">Included across `src/`, `scripts/`, and `docs/` in `donut-autosell-v3.zip`</p>
+            </div>
+            <span class="font-mono text-xs px-2.5 py-1 rounded border border-neutral-800 bg-black text-emerald-400">v3.0 ENTERPRISE</span>
+          </div>
+
+          <div class="space-y-4 text-xs text-neutral-300 leading-relaxed font-mono bg-black border border-[#1F1F1F] p-5 rounded-lg">
+            <p class="text-white font-semibold">1. Install &amp; Interactive Setup Wizard</p>
+            <pre class="p-3 bg-[#0A0A0A] border border-[#1F1F1F] rounded text-emerald-400">npm install && npm run setup</pre>
+
+            <p class="text-white font-semibold pt-2">2. Run Environment Healthcheck</p>
+            <pre class="p-3 bg-[#0A0A0A] border border-[#1F1F1F] rounded text-emerald-400">npm run doctor</pre>
+
+            <p class="text-white font-semibold pt-2">3. Start Fulfillment Engine &amp; Authorize Microsoft Account</p>
+            <pre class="p-3 bg-[#0A0A0A] border border-[#1F1F1F] rounded text-emerald-400">npm start</pre>
+
+            <p class="text-white font-semibold pt-2">4. 24/7 VPS Deployment via PM2</p>
+            <pre class="p-3 bg-[#0A0A0A] border border-[#1F1F1F] rounded text-emerald-400">pm2 start ecosystem.config.js && pm2 save</pre>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    const MARKET_BENCHMARKS = [
+      { tier: 'BULK', rateB: 0.59, minOrder: '250B' },
+      { tier: 'BULK', rateB: 0.85, minOrder: '100B' },
+      { tier: 'RETAIL', rateB: 13.80, minOrder: '50M' },
+      { tier: 'RETAIL', rateB: 14.90, minOrder: '100M' },
+      { tier: 'RETAIL', rateB: 16.50, minOrder: '25M' }
+    ];
+
+    let backendUrl = localStorage.getItem('donut_backend_url') || 'http://localhost:3000';
+    let engineRunning = true;
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function initAuth() {
+      const savedHash = localStorage.getItem('donut_vault_hash');
+      const storeName = localStorage.getItem('donut_store_name');
+      if (savedHash && storeName) {
+        document.getElementById('activationFields').classList.add('hidden');
+        document.getElementById('inputStoreName').required = false;
+        document.getElementById('inputLicenseKey').required = false;
+        document.getElementById('authTitle').textContent = `Unlock ${storeName}`;
+        document.getElementById('authSubtitle').textContent = 'Enter your local SHA-256 master vault passcode.';
+        document.getElementById('authSubmitBtn').textContent = 'Unlock Control Plane';
+      }
+      if (sessionStorage.getItem('donut_unlocked') === '1' && savedHash) {
+        unlockUI();
+      }
+    }
+
+    document.getElementById('authForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('authError');
+      errEl.classList.add('hidden');
+
+      const pass = document.getElementById('inputPasscode').value.trim();
+      const hash = await sha256(pass);
+      const savedHash = localStorage.getItem('donut_vault_hash');
+
+      if (!savedHash) {
+        const store = document.getElementById('inputStoreName').value.trim();
+        const lic = document.getElementById('inputLicenseKey').value.trim();
+        if (!store || !lic || pass.length < 4) {
+          errEl.textContent = 'Store name, license key, and 4+ char passcode required.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        localStorage.setItem('donut_store_name', store);
+        localStorage.setItem('donut_license_key', lic);
+        localStorage.setItem('donut_vault_hash', hash);
+        unlockUI();
+      } else {
+        if (hash !== savedHash) {
+          errEl.textContent = 'Invalid vault passcode.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        unlockUI();
+      }
+    });
+
+    function unlockUI() {
+      sessionStorage.setItem('donut_unlocked', '1');
+      document.getElementById('authGate').classList.add('hidden');
+      document.getElementById('appShell').classList.remove('hidden');
+      const store = localStorage.getItem('donut_store_name') || 'DONUT // AUTO-SELL';
+      document.getElementById('headerStoreName').textContent = store.toUpperCase();
+      document.getElementById('cfgBackendUrl').value = backendUrl;
+      renderMarketTable();
+      recalcMargin();
+      refreshLiveState();
+      setInterval(refreshLiveState, 8000);
+    }
+
+    function lockVault() {
+      sessionStorage.removeItem('donut_unlocked');
+      location.reload();
+    }
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('border-white', 'text-white');
+        b.classList.add('border-transparent');
+      });
+      const activeBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+      if (activeBtn) {
+        activeBtn.classList.add('border-white', 'text-white');
+        activeBtn.classList.remove('border-transparent');
+      }
+    }
+
+    async function refreshLiveState() {
+      const dot = document.getElementById('backendDot');
+      const txt = document.getElementById('backendStatusText');
+      try {
+        const [statusRes, ordersRes, skusRes] = await Promise.all([
+          fetch(`${backendUrl}/api/status`),
+          fetch(`${backendUrl}/api/orders`),
+          fetch(`${backendUrl}/api/skus`)
+        ]);
+        const statusData = await statusRes.json();
+        const ordersData = await ordersRes.json();
+        const skusData = await skusRes.json();
+
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        txt.textContent = 'Backend Connected';
+
+        engineRunning = !!statusData.engineRunning;
+        document.getElementById('engineDot').className = `w-2 h-2 rounded-full ${engineRunning ? 'bg-emerald-400' : 'bg-amber-400'}`;
+        document.getElementById('engineLabel').textContent = `ENGINE: ${engineRunning ? 'ON' : 'PAUSED'}`;
+
+        document.getElementById('kpiRevenue').textContent = `$${Number(statusData.stats?.revenueUsd || 0).toFixed(2)}`;
+        document.getElementById('kpiDeliveredCount').textContent = `${statusData.stats?.deliveredOrders || 0} completed deliveries`;
+        document.getElementById('kpiOrders').textContent = String(statusData.stats?.totalOrders || 0);
+        document.getElementById('kpiBalance').textContent = formatCash(statusData.bot?.balance || 0);
+        document.getElementById('kpiBotName').textContent = statusData.bot?.online
+          ? `Online: ${statusData.bot.username} (${statusData.bot.ping}ms)`
+          : 'Bot Offline (check .env)';
+
+        renderOrders(ordersData.orders || []);
+        renderLogs(statusData.logs || []);
+        renderSkus(skusData.skus || []);
+      } catch (err) {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+        txt.textContent = 'Backend Offline (Start server.js)';
+      }
+    }
+
+    function formatCash(num) {
+      if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+      if (num >= 1e6) return `$${(num / 1e6).toFixed(1)}M`;
+      return `$${Number(num).toLocaleString()}`;
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById('ordersTableBody');
+      if (!orders.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-neutral-500">Awaiting live Eldorado.gg orders from backend...</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = orders.map(o => {
+        const badge = o.status === 'DELIVERED'
+          ? 'text-emerald-400 border-emerald-900 bg-emerald-950/40'
+          : o.status === 'FAILED'
+          ? 'text-red-400 border-red-900 bg-red-950/40'
+          : 'text-amber-400 border-amber-900 bg-amber-950/40';
+        return `
+          <tr>
+            <td class="py-2.5 pr-3 text-white">${o.id}</td>
+            <td class="py-2.5 pr-3 text-neutral-300">${o.ign || '—'}</td>
+            <td class="py-2.5 pr-3 text-neutral-400">${o.sku}</td>
+            <td class="py-2.5 pr-3 text-white">$${Number(o.price_usd || 0).toFixed(2)}</td>
+            <td class="py-2.5 pr-3"><span class="px-2 py-0.5 rounded border text-[10px] ${badge}">${o.status}</span></td>
+            <td class="py-2.5 text-right space-x-1.5">
+              ${o.status !== 'DELIVERED' ? `
+                <button onclick="retryOrder('${o.id}')" class="geist-btn-secondary px-2 py-1 text-[11px]">Retry /pay</button>
+                <button onclick="forceDeliver('${o.id}')" class="geist-btn-secondary px-2 py-1 text-[11px]">Mark Delivered</button>
+              ` : '<span class="text-neutral-500 text-[11px]">Completed</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderSkus(skus) {
+      const tbody = document.getElementById('skusTableBody');
+      if (!skus.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-neutral-500">No custom Offer ID mappings saved yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = skus.map(s => `
+        <tr>
+          <td class="py-2.5 pr-3 text-white">${s.offer_id}</td>
+          <td class="py-2.5 pr-3 text-neutral-300">${s.label}</td>
+          <td class="py-2.5 pr-3 text-emerald-400">${formatCash(s.unit_multiplier)}</td>
+          <td class="py-2.5 pr-3 text-neutral-400">${s.cmd_template}</td>
+          <td class="py-2.5 text-right">
+            <button onclick="removeSku('${s.offer_id}')" class="geist-btn-secondary px-2 py-1 text-[11px] text-red-400">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('skuForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        offer_id: document.getElementById('skuOfferId').value.trim(),
+        label: document.getElementById('skuLabel').value.trim(),
+        unit_multiplier: Number(document.getElementById('skuMultiplier').value),
+        cmd_template: document.getElementById('skuCmd').value.trim(),
+        auto_pause_below: Number(document.getElementById('skuAutoPause').value)
+      };
+      await fetch(`${backendUrl}/api/skus`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      document.getElementById('skuForm').reset();
+      refreshLiveState();
+    });
+
+    async function removeSku(offerId) {
+      await fetch(`${backendUrl}/api/skus/${encodeURIComponent(offerId)}`, { method: 'DELETE' });
+      refreshLiveState();
+    }
+
+    function renderLogs(logs) {
+      const box = document.getElementById('liveLogsBox');
+      if (!logs.length) return;
+      box.innerHTML = logs.map(l => {
+        const color = l.level === 'ERROR' ? 'text-red-400' : l.level === 'WARN' ? 'text-amber-400' : l.level === 'SUCCESS' ? 'text-emerald-400' : 'text-neutral-300';
+        return `<div class="${color}"><span class="text-neutral-500">[${l.source}]</span> ${l.message}</div>`;
+      }).join('');
+    }
+
+    async function toggleEngine() {
+      try {
+        await fetch(`${backendUrl}/api/engine/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ running: !engineRunning })
+        });
+        refreshLiveState();
+      } catch (_) {}
+    }
+
+    document.getElementById('botCmdForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('botCmdInput');
+      const command = input.value.trim();
+      if (!command) return;
+      input.value = '';
+      try {
+        await fetch(`${backendUrl}/api/bot/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command })
+        });
+        refreshLiveState();
+      } catch (_) {}
+    });
+
+    async function retryOrder(id) {
+      await fetch(`${backendUrl}/api/orders/${encodeURIComponent(id)}/retry`, { method: 'POST' });
+      refreshLiveState();
+    }
+
+    async function forceDeliver(id) {
+      await fetch(`${backendUrl}/api/orders/${encodeURIComponent(id)}/deliver`, { method: 'POST' });
+      refreshLiveState();
+    }
+
+    function renderMarketTable() {
+      const filter = document.getElementById('tierFilter').value;
+      const rows = MARKET_BENCHMARKS.filter(r => filter === 'ALL' || r.tier === filter);
+      document.getElementById('marketTableBody').innerHTML = rows.map(r => `
+        <tr>
+          <td class="py-2.5 pr-3 text-neutral-300">${r.tier}</td>
+          <td class="py-2.5 pr-3 text-white font-semibold">$${r.rateB.toFixed(2)}</td>
+          <td class="py-2.5 pr-3 text-neutral-400">$${(r.rateB / 1000).toFixed(5)}</td>
+          <td class="py-2.5 pr-3 text-neutral-400">${r.minOrder}</td>
+          <td class="py-2.5 text-right">
+            <button onclick="undercutRate(${r.rateB})" class="geist-btn-secondary px-2.5 py-1 text-[11px]">Undercut -$0.05/B</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function undercutRate(rate) {
+      const next = Math.max(0.05, rate - 0.05).toFixed(2);
+      document.getElementById('calcSellRate').value = next;
+      recalcMargin();
+    }
+
+    function recalcMargin() {
+      const sell = parseFloat(document.getElementById('calcSellRate').value) || 0;
+      const cost = parseFloat(document.getElementById('calcCostRate').value) || 0;
+      const qty = parseFloat(document.getElementById('calcQtyB').value) || 0;
+      const feePct = parseFloat(document.getElementById('calcFeePct').value) || 0;
+
+      const gross = sell * qty;
+      const fee = gross * (feePct / 100);
+      const totalCost = cost * qty;
+      const net = gross - fee - totalCost;
+
+      document.getElementById('resGross').textContent = `$${gross.toFixed(2)}`;
+      document.getElementById('resFee').textContent = `-$${fee.toFixed(2)}`;
+      document.getElementById('resCost').textContent = `-$${totalCost.toFixed(2)}`;
+      document.getElementById('resNet').textContent = `$${net.toFixed(2)}`;
+      document.getElementById('kpiRate').textContent = `$${sell.toFixed(2)} / 1B`;
+    }
+
+    async function pushRateToEldorado() {
+      const pricePerB = parseFloat(document.getElementById('calcSellRate').value) || 13.80;
+      const offerId = document.getElementById('cfgOfferId').value.trim();
+      if (!offerId) return alert('Set your Default Eldorado Offer ID in Setup & Connect first.');
+      const pricePerMillion = Number((pricePerB / 1000).toFixed(5));
+      try {
+        await fetch(`${backendUrl}/api/pricing/push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ offerId, pricePerUnit: pricePerMillion })
+        });
+        alert(`Pushed $${pricePerMillion}/1M ($${pricePerB}/1B) to Offer ${offerId}`);
+      } catch (e) {
+        alert('Failed to push pricing: ' + e.message);
+      }
+    }
+
+    async function saveAndSyncConfig() {
+      backendUrl = document.getElementById('cfgBackendUrl').value.trim().replace(/\/$/, '') || 'http://localhost:3000';
+      localStorage.setItem('donut_backend_url', backendUrl);
+      const payload = {
+        eldoClientId: document.getElementById('cfgEldoId').value.trim(),
+        eldoClientSecret: document.getElementById('cfgEldoSecret').value.trim(),
+        offerId: document.getElementById('cfgOfferId').value.trim(),
+        mcUsername: document.getElementById('cfgMcUser').value.trim(),
+        discordWebhook: document.getElementById('cfgWebhook').value.trim()
+      };
+      const statusEl = document.getElementById('cfgSaveStatus');
+      try {
+        await fetch(`${backendUrl}/api/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        statusEl.textContent = 'Synced directly to running Node.js server.';
+        statusEl.className = 'text-xs font-mono text-emerald-400';
+        refreshLiveState();
+      } catch (err) {
+        statusEl.textContent = 'Saved locally. Start node src/server.js to sync live.';
+        statusEl.className = 'text-xs font-mono text-amber-400';
+      }
+    }
+
+    async function sendRealWebhookPing() {
+      const url = document.getElementById('cfgWebhook').value.trim();
+      if (!url) return alert('Enter a Discord Webhook URL first.');
+      try {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            embeds: [{
+              title: 'DONUT // AUTO-SELL v3.0 Webhook Connected',
+              description: 'Real-time order notifications are active for your Eldorado.gg x DonutSMP fulfillment node.',
+              color: 1096065
+            }]
+          })
+        });
+        alert('Webhook dispatched to Discord.');
+      } catch (e) {
+        alert('Failed to dispatch webhook: ' + e.message);
+      }
+    }
+
+    initAuth();
+  </script>
+</body>
+</html>
